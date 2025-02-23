@@ -1,134 +1,131 @@
 import streamlit as st
 import pandas as pd
 import os
+import PyPDF2
 from openai import OpenAI
 from dotenv import load_dotenv
-from financial_model_api import *
+from financial_model_api import ask_question
 
-# Load environment variables
+# Load environment and set up OpenAI client
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
-
-# Set up OpenAI client
 client = OpenAI(api_key=api_key)
 
-# Streamlit UI
+# Page styling and header
 st.markdown("""
     <style>
-    html, body, .stApp {
-        background-color: #041317; 
-        height: 100%;
-        margin: 0;
-        padding: 0;
-    }
-    .stApp {
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-    }
-    .tagline {
-        font-size: 20px;
-        font-weight: bold;
-        color: #a4ffff;
-        text-align: center;
-        margin-top: -10px;
-    }
-    .subtagline {
-        font-size: 14px;
-        color: #fcfcfc;
-        text-align: center;
-        padding: 20px;
-        margin-bottom: 20px;
-    }
-    .header {
-        font-size: 39px;
-        font-weight: bold;
-        color: #65daff;
-        text-align: center;
-        margin-top: -10px;
-        margin-bottom: 10px;
-    }
+    html, body, .stApp {background-color: #041317; margin: 0; padding: 0;}
+    .stApp {display: flex; flex-direction: column; min-height: 100vh;}
+    .tagline {font-size: 20px; font-weight: bold; color: #a4ffff; text-align: center; margin-top: -10px;}
+    .subtagline {font-size: 14px; color: #fcfcfc; text-align: center; padding: 20px; margin-bottom: 20px;}
+    .header {font-size: 39px; font-weight: bold; color: #65daff; text-align: center; margin: -10px 0 10px 0;}
     </style>
     """, unsafe_allow_html=True)
-
-col1, col2 = st.columns([1, 5]) 
-
+col1, col2 = st.columns([1, 5])
 with col1:
     st.image("youtiva-logo.png", width=100)
-
 with col2:
     st.title("Youtiva")
-
 st.markdown('<div class="tagline">Stand Out & Excel with Your Unique AI</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtagline">Empowering businesses with tailored AI solutions to streamline operations, boost efficiency, and sustain competitive advantage</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtagline">Tailored AI for your biz needs</div>', unsafe_allow_html=True)
 st.markdown('<div class="header">Financial Statements</div>', unsafe_allow_html=True)
 
+# Ask how many years
+num_years = st.number_input("How many years? (Enter a number)", min_value=1, step=1, value=1)
 
-
-# Initialize session state if not already set
-if "financials_loaded" not in st.session_state:
-    st.session_state.financials_loaded = False
-    st.session_state.income_df = None
-    st.session_state.balance_df = None
-    st.session_state.cash_df = None
-    st.session_state.all_files_uploaded = False
-    st.session_state.financials_text = ""
-
-# File uploaders for CSV files
-st.subheader("Upload Financial Statements")
-income_file = st.file_uploader("Upload Income Statement (CSV)", type=["csv"], key="income")
-balance_file = st.file_uploader("Upload Balance Sheet (CSV)", type=["csv"], key="balance")
-cash_file = st.file_uploader("Upload Cash Flow Statement (CSV)", type=["csv"], key="cash")
-
-# Check if all files are uploaded
-if income_file and balance_file and cash_file:
-    st.session_state.financials_loaded = True
-    st.session_state.income_df = pd.read_csv(income_file)
-    st.session_state.balance_df = pd.read_csv(balance_file)
-    st.session_state.cash_df = pd.read_csv(cash_file)
-    st.session_state.all_files_uploaded = True
+yearly_data = []
+all_uploaded = True
+missing_msg = ""
+st.markdown("---")
+for i in range(1, num_years + 1):
+    st.subheader(f"Year {i}")
+    # Year label input
+    year_label = st.text_input(f"Enter label for Year {i} (e.g., 2021)", value=f"Year {i}", key=f"year_label_{i}")
     
-    # Convert financial data to text for AI analysis
-    st.session_state.financials_text = (
-        f"Income Statement:\n{st.session_state.income_df.to_string()}\n\n"
-        f"Balance Sheet:\n{st.session_state.balance_df.to_string()}\n\n"
-        f"Cash Flow Statement:\n{st.session_state.cash_df.to_string()}"
+    # Core file uploads
+    income_file = st.file_uploader(f"Income Statement (CSV) for {year_label}", type=["csv"], key=f"income_{i}")
+    balance_file = st.file_uploader(f"Balance Sheet (CSV) for {year_label}", type=["csv"], key=f"balance_{i}")
+    cash_file = st.file_uploader(f"Cash Flow Statement (CSV) for {year_label}", type=["csv"], key=f"cash_{i}")
+
+    missing = []
+    if not income_file:
+        missing.append("Income Statement")
+    if not balance_file:
+        missing.append("Balance Sheet")
+    if not cash_file:
+        missing.append("Cash Flow Statement")
+    
+    # Extra files section
+    extra_files = []
+    num_extra = st.number_input(f"Number of extra files for {year_label}", min_value=0, value=0, step=1, key=f"num_extra_{i}")
+    for j in range(1, num_extra + 1):
+        extra_name = st.text_input(f"Extra File {j} Name", key=f"extra_name_{i}_{j}")
+        extra_file = st.file_uploader(f"Upload file for '{extra_name}'", type=["txt", "pdf", "csv"], key=f"extra_{i}_{j}")
+        if extra_file:
+            # Process extra file based on type
+            if extra_file.name.endswith(".pdf"):
+                pdf_reader = PyPDF2.PdfReader(extra_file)
+                extra_text = ""
+                for page in pdf_reader.pages:
+                    extra_text += page.extract_text() + "\n"
+            elif extra_file.name.endswith(".csv"):
+                df_extra = pd.read_csv(extra_file)
+                extra_text = df_extra.to_string()
+            else:
+                extra_text = extra_file.read().decode("utf-8")
+            extra_files.append({"name": extra_name, "text": extra_text})
+    
+    if missing:
+        all_uploaded = False
+        missing_msg += f"{year_label} missing: {', '.join(missing)}\n"
+    else:
+        income_df = pd.read_csv(income_file)
+        balance_df = pd.read_csv(balance_file)
+        cash_df = pd.read_csv(cash_file)
+        yearly_data.append({
+            "label": year_label,
+            "income": income_df,
+            "balance": balance_df,
+            "cash": cash_df,
+            "extra": extra_files
+        })
+    
+    st.markdown("---")  # Horizontal rule after each year
+
+# If everything is in place, combine all text data
+if all_uploaded and yearly_data:
+    combined_text = ""
+    for data in yearly_data:
+        combined_text += f"{data['label']}:\n"
+        combined_text += f"Income Statement:\n{data['income'].to_string()}\n"
+        combined_text += f"Balance Sheet:\n{data['balance'].to_string()}\n"
+        combined_text += f"Cash Flow Statement:\n{data['cash'].to_string()}\n"
+        if data["extra"]:
+            for extra in data["extra"]:
+                combined_text += f"Extra File - {extra['name']}:\n{extra['text']}\n"
+        combined_text += "\n"
+        
+        st.subheader(f"{data['label']} - Income Statement")
+        st.dataframe(data['income'], height=300)
+        st.subheader(f"{data['label']} - Balance Sheet")
+        st.dataframe(data['balance'], height=300)
+        st.subheader(f"{data['label']} - Cash Flow Statement")
+        st.dataframe(data['cash'], height=300)
+    
+    model_name = st.selectbox(
+        "Choose a model:",
+        ["gpt-4o", "Meta_Llama_3_8B_Instruct", "Meta_Llama_3dot3_70B_Instruct_Turbo",
+         "Meta_Llama_3dot3_70B_Instruct", "Mistral_Small_24B_Instruct_2501"],
+        index=0
     )
-
-# Display uploaded data if all files are present
-if st.session_state.financials_loaded:
-    st.subheader("Income Statement")
-    st.dataframe(st.session_state.income_df, height=300)
-
-    st.subheader("Balance Sheet")
-    st.dataframe(st.session_state.balance_df, height=300)
-
-    st.subheader("Cash Flow Statement")
-    st.dataframe(st.session_state.cash_df, height=300)
-
-# Model selection dropdown
-model_name = st.selectbox(
-    "Choose a model:",
-    [
-        "gpt-4o", 
-        "Meta_Llama_3_8B_Instruct", 
-        "Meta_Llama_3dot3_70B_Instruct_Turbo", 
-        "Meta_Llama_3dot3_70B_Instruct", 
-        "Mistral_Small_24B_Instruct_2501"
-    ],
-    index=0  # Default to gpt-4o
-)
-# User input for questions
-if st.session_state.all_files_uploaded:
-    user_question = st.text_area("Ask a question about this financial data:")
-    
-    # Button to analyze data
+    user_question = st.text_area("Ask a question about these financials (all years):")
     if st.button("Analyze Data"):
         if user_question:
-            answer = ask_question(user_question, st.session_state.financials_text, model_name)
+            answer = ask_question(user_question, combined_text, model_name)
             st.subheader("Analysis")
             st.write(answer)
         else:
             st.warning("Please enter a question before clicking 'Analyze Data'.")
 else:
-    st.info("Please upload all three financial statements before analyzing the data.")
+    if missing_msg:
+        st.info(f"Please upload all three core financial statements before analyzing the data:\n{missing_msg}")
