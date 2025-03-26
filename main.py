@@ -43,9 +43,9 @@ for i in range(1, num_years + 1):
     year_label = st.text_input(f"Enter label for Year {i} (e.g., 2021)", value=f"Year {i}", key=f"year_label_{i}")
     
     # Core file uploads
-    income_file = st.file_uploader(f"Income Statement (CSV) for {year_label}", type=["csv"], key=f"income_{i}")
-    balance_file = st.file_uploader(f"Balance Sheet (CSV) for {year_label}", type=["csv"], key=f"balance_{i}")
-    cash_file = st.file_uploader(f"Cash Flow Statement (CSV) for {year_label}", type=["csv"], key=f"cash_{i}")
+    income_file = st.file_uploader(f"Income Statement (CSV or PDF) for {year_label}", type=["csv", "pdf"], key=f"income_{i}")
+    balance_file = st.file_uploader(f"Balance Sheet (CSV or PDF) for {year_label}", type=["csv", "pdf"], key=f"balance_{i}")
+    cash_file = st.file_uploader(f"Cash Flow Statement (CSV or PDF) for {year_label}", type=["csv", "pdf"], key=f"cash_{i}")
 
     missing = []
     if not income_file:
@@ -79,9 +79,30 @@ for i in range(1, num_years + 1):
         all_uploaded = False
         missing_msg += f"{year_label} missing: {', '.join(missing)}\n"
     else:
-        income_df = pd.read_csv(income_file)
-        balance_df = pd.read_csv(balance_file)
-        cash_df = pd.read_csv(cash_file)
+        if income_file.name.endswith(".pdf"):
+            pdf_reader = PyPDF2.PdfReader(income_file)
+            income_df = pd.DataFrame()  # Placeholder for PDF data processing
+            for page in pdf_reader.pages:
+                income_df = pd.concat([income_df, pd.read_csv(page.extract_text())], ignore_index=True)  # Example processing
+        else:
+            income_df = pd.read_csv(income_file)
+
+        if balance_file.name.endswith(".pdf"):
+            pdf_reader = PyPDF2.PdfReader(balance_file)
+            balance_df = pd.DataFrame()  # Placeholder for PDF data processing
+            for page in pdf_reader.pages:
+                balance_df = pd.concat([balance_df, pd.read_csv(page.extract_text())], ignore_index=True)  # Example processing
+        else:
+            balance_df = pd.read_csv(balance_file)
+
+        if cash_file.name.endswith(".pdf"):
+            pdf_reader = PyPDF2.PdfReader(cash_file)
+            cash_df = pd.DataFrame()  # Placeholder for PDF data processing
+            for page in pdf_reader.pages:
+                cash_df = pd.concat([cash_df, pd.read_csv(page.extract_text())], ignore_index=True)  # Example processing
+        else:
+            cash_df = pd.read_csv(cash_file)
+
         yearly_data.append({
             "label": year_label,
             "income": income_df,
