@@ -83,7 +83,11 @@ for i in range(1, num_years + 1):
             pdf_reader = PyPDF2.PdfReader(income_file)
             income_df = pd.DataFrame()  # Placeholder for PDF data processing
             for page in pdf_reader.pages:
-                income_df = pd.concat([income_df, pd.read_csv(page.extract_text())], ignore_index=True)  # Example processing
+                # Extract text from PDF page and convert to a StringIO object for read_csv
+                extracted_text = page.extract_text()
+                if extracted_text:
+                    from io import StringIO
+                    income_df = pd.concat([income_df, pd.read_csv(StringIO(extracted_text))], ignore_index=True)  # Example processing
         else:
             income_df = pd.read_csv(income_file)
 
@@ -91,7 +95,11 @@ for i in range(1, num_years + 1):
             pdf_reader = PyPDF2.PdfReader(balance_file)
             balance_df = pd.DataFrame()  # Placeholder for PDF data processing
             for page in pdf_reader.pages:
-                balance_df = pd.concat([balance_df, pd.read_csv(page.extract_text())], ignore_index=True)  # Example processing
+                # Extract text from PDF page and convert to a StringIO object for read_csv
+                extracted_text = page.extract_text()
+                if extracted_text:
+                    from io import StringIO
+                    balance_df = pd.concat([balance_df, pd.read_csv(StringIO(extracted_text))], ignore_index=True)  # Example processing
         else:
             balance_df = pd.read_csv(balance_file)
 
@@ -99,7 +107,11 @@ for i in range(1, num_years + 1):
             pdf_reader = PyPDF2.PdfReader(cash_file)
             cash_df = pd.DataFrame()  # Placeholder for PDF data processing
             for page in pdf_reader.pages:
-                cash_df = pd.concat([cash_df, pd.read_csv(page.extract_text())], ignore_index=True)  # Example processing
+                # Extract text from PDF page and convert to a StringIO object for read_csv
+                extracted_text = page.extract_text()
+                if extracted_text:
+                    from io import StringIO
+                    cash_df = pd.concat([cash_df, pd.read_csv(StringIO(extracted_text))], ignore_index=True)  # Example processing
         else:
             cash_df = pd.read_csv(cash_file)
 
